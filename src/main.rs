@@ -332,5 +332,43 @@ fn main() {
 
 
 
+    // Structs with Lifetime Parameters
+
+    // As discussed in "Structs Containing References" in chapt 5, if a struct type contains references, we must name those references' lifetimes. For example, here's a structure that might hold references to the greatest and least elements of some slice:
+    struct Extrema<'elt> {
+        greatest: &'elt i32,
+        least: &'elt i32
+    }
+
+    // Earlier, we said to think of a declaration like struct Queue<T> as meaning that, given any specific type T, we can make a Queue<T> that holds that type. Similarly, we can think of struct Extrema<'elt> as meaning that, given any specific lifetime 'elt, you can make an Extrema<'elt> that holds references with that lifetime.
+
+    // Here's a function to scan a slice and return an Extrema value whose fields refer to its elements:
+    fn find_extrema<'s>(slice: &'s [i32]) -> Extrema<'s> {
+        let mut greatest = &slice[0];
+        let mut least = &slice[0];
+
+        for i in 1..slice.len() {
+            if slice[i] < *least    { least     = &slice[i]; }
+            if slice[i] > *greatest { greatest = &slice[i]; }
+        }
+
+        Extrema { greatest, least }
+    }
+
+    // Since find_extrema borrows elements of slice, which has lifetime 's, the Extrema struct we return also uses 's as the lifetime of its references. Rust always infers lifetime parameters for calls, so calls to find_extrema needn't mention them:
+    let a = [0, -3, 0, 15, 48];
+    let e = find_extrema(&a);
+    assert_eq!(*e.least, -3);
+    assert_eq!(*e.greatest, 48);
+
+    // Because it's so common for the return type to use the same lifetime as an argument, Rust lets us omit the lifetimes when there's on obvious candidate. We could also have written find_extrema's signature like so, with no change in meaning:
+    fn find_extrema(slice: &[i32]) -> Extrema {
+        ...
+    }
+
+    // Granted, we might have meant Extrema<'static>, but that's pretty unusual. Rust provides a shorthand for the common case.
+
+
+
 
 }
