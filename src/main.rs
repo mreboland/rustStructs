@@ -107,4 +107,33 @@ fn main() {
     assert_eq!(hokey2.name, "Hokey II");
     assert_eq!(hokey2.health, 100);
     
+
+
+    // Tuple-Like Structs
+
+    // The second kind of struct type is called a tuple-like struct, because it resembles a tuple:
+    struct Bounds(usize, usize);
+
+    // We construct a value of this type much as we would construct a tuple, except that we must include the struct name:
+    let image_bounds = Bounds(1024, 768);
+
+    // The values held by a tuple-like struct are called elements, just as the values of a tuple are. We access them just as we would a tuple's:
+    assert_eq!(image_bounds.0 * image_bounds.1, 786432);
+
+    // Individual elements of a tuple-like struct may be public or not:
+    pub struct Bounds(pub usize, pub usize);
+
+    // The expression Bounds(1024, 768) looks like a function call, and in fact it is. Defining the type also implicitly defines a function:
+    fn Bounds(elem0: usize, elem1: usize) -> Bounds { ... }
+
+    // At the most fundamental level, named-field and tuple-like structs are very similar. The choice of which to use comes down to questions of legibility, ambiguity, and brevity. If we will use the . operator to get at a value's components much at all, identifying fields by name provides the reader more info, and is probably more robust against types. If we will usually use pattern matching to find the elements, tuple-like structs can work nicely.
+
+    // Tuple-like structs are good for newtypes, structs with a single component that we define to get stricter type checking. For example, if we are working with ASCII-only text, we might define a newtype like so:
+    struct Ascii(Vec<u8>);
+
+    // Using this type for our ASCII strings is much better than simply passing around Vec<u8> buffers and explaining what they are in the comments. The newtype helps Rust catch mistakes where some other byte buffer is passed to a function expecting ASCII text. More on this in chapt 21.
+
+
+
+    
 }
