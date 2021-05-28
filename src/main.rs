@@ -162,4 +162,75 @@ fn main() {
     // Rust doesn't make specific promises about how it will order a struct's fields or elements in memory. However, Rust does promise to store field's value directly in the struct's block of memory. Whereas JS and Python would put the pixels and size values each in their own heap-allocated blocks and have GrayscaleMap's fields point at them, Rust embeds pixels and size directly in the GrayscaleMap value. Only the heap-allocated buffer owned by the pixels vector remains in its own block.
 
     // We can ask Rust to lay out structures in a way compatible with C and C++, using the #[repr(C)] attribute, covered in chapt 21.
+
+
+
+    // Defining Methods with impl
+
+    // Throughout the book we've been calling methods on all sorts of values. We've pushed elements onto vectors with v.push(e), fetched their length with v.len(), checked Result values for errors with r.expect("msg"), and so on.
+
+    // We can define methods on any struct type we define. Rather than appearing inside the struct definition (C++ or Java), Rust methods appear in a separate impl block:
+    /// A last-in, first-out queue of characters.
+    pub struct Queue {
+        older: Vec<char>, // older elements, eldest last.
+        younger: Vec<char> // younger elements, youngest last.
+    }
+
+    impl Queue {
+        /// Push a character onto the back of a queue.
+        pub fn push(&mut self, c: char) {
+            self.younger.push(c);
+        }
+
+        /// Pop a character off the front of a queue. Return `Some(c)` if there
+        /// was a character to pop, or `None` if the queue was empty.
+        pub fn pop(&mut self) -> Option<char> {
+            if self.older.is_empty() {
+                if self.younger.is_empty() {
+                    return None;
+                }
+
+                // Bring the elements in younger over to older, and put them in
+                // the promised order.
+                use std::mem::swap;
+                swap(&mut self.older, &mut self.younger);
+                self.older.reverse();
+            }
+
+            // Now older is guaranteed to have something. Vec's pop method
+            // already returns an Option, so we're set.
+            self.older.pop()
+        }
+    }
+
+    // An impl block is simply a collection of fn definitions, each of which becomes a method on the struct type named at the top of the block. Here we've defined a public struct Queue, and then given it two public methods, push and pop.
+
+    // Methods are also known as associated functions, since they're associated with a specific type. The opposite is a free function, one that is not defined as an impl block's item.
+
+    // Rust passes a method to the value it's being called on as its first argument, which must have the special name self. Since self's type is obviously the one named at the top of the impl block, or a reference to that, Rust lets you omit the type, and write self, &self, or &mut self as shorthand for self:Queue, self: &Queue, or self: &mut Queue. We can use the longhand forms if we like, but almost all Rust code uses the shorthand way.
+
+    // In the example, the push and pop methods refer to the Queue's fields as self.older and self.younger.A Rust method must explicitly use self to refer to the value it was called on, similar to the way Python methods use self, and JS methods use this.
+
+    // Since push and pop need to modify the Queue, they both take &mut self. However, when we call a method, we don't need to borrow the mutable ref ourself. The ordinary method call syntax takes care of the implicitly. So with these definitions in place, we can use Queue like this:
+    let mut q = Queue { older: Vec::new(), younger: Vec::new() };
+
+    q.push('0');
+    q.push('1');
+    assert_eq!(q.pop(), Some('0'));
+
+    q.push('∞');
+    assert_eq!(q.pop(), Some('1'));
+    assert_eq!(q.pop(), Some('∞'));
+    assert_eq!(q.pop(), None);
+
+    // Simply writing q.push(...) borrows a mutable ref to q, as if we had written (&mut q).push(...), since that's what the push method's self requires.
+
+    // If a method doesn't need to modify its self, then we can define it to take a shared ref instead. For example:
+    impl Queue {
+        pub fn is_empty(&self) -> bool {
+            self.older.is_empty() && self.younger.is_empty()
+        }
+    }
+
+    
 }
