@@ -135,5 +135,15 @@ fn main() {
 
 
 
-    
+    // Unit-Like Structs
+
+    // The third kind of struct is a little obscure. It declares a struct type with no elements at all:
+    struct Onesuch;
+
+    // A value of such a type occupies no memory, much like the unit type (). Rust doesn't bother actually storing unit-like struct values in memory or generating code to operate on them because it can tell everything it might need to know about the value from its type alone. But logically, an empty struct is a type with value like any other, or more precisely, a type of which there is only a single value:
+    let o = Onesuch;
+
+    // We've already encountered a unit-like struct when reading about "Fields and Elements" in chapt 6. Whereas an expression like 3..5 is shorthand for the struct value Range { start: 3, end: 5 }, the expression .., a range omitting both endpoints, is shorthand for the unit-like struct value RangeFull.
+
+    // Unit-like structs can also be useful when working with traits which is covered in chapt 11.
 }
