@@ -1,4 +1,4 @@
-use std::u32;
+use std::{borrow::BorrowMut, u32};
 
 fn main() {
     println!("Hello, world!");
@@ -380,7 +380,7 @@ fn main() {
 
     // However, if we were to start using this Point type, we would quickly notice that it's a bit of a pain. As written, Point is not copyable or cloneable. We can't print it with println!("{:?}", point), and it doesn't support the == and != operators.
 
-    // Each of these features has a name in Rust, Copy, Clone, Debug, and PartialEq. They are called traits. In chapt 11, goes into more detail on how to implement traits by hand for our own structs. But in the case of these standard traits, and several others, we don't need to implement them by hand unless we want some kind of custom behaviour. Rust can automatically implement them for us, with mechanical accuracy. Just add a #[derive] attribute to the struct:
+    // Each of these features has a name in Rust, Copy, Clone, Debug, and PartialEq. They are called traits. Chapt 11, goes into more detail on how to implement traits by hand for our own structs. But in the case of these standard traits, and several others, we don't need to implement them by hand unless we want some kind of custom behaviour. Rust can automatically implement them for us, with mechanical accuracy. Just add a #[derive] attribute to the struct:
     #[derive(Copy, Clone, Debug, PartialEq)]
     struct Point {
         x: f64,
@@ -395,7 +395,116 @@ fn main() {
 
 
 
-    
+    // Interior Mutability
+
+    // Mutability is like anything else. In excess, it causes problems, but we often want just a little bit of it. For example, say our spider robot control system has a central struct, SpiderRobot, that contains settings and I/O handles. It's set up when the robot boots, and the values never change:
+    pub struct SpiderRobot {
+        species: String,
+        web_enabled: bool,
+        leg_devices: [fd::FileDesc, 8],
+        ...
+    }
+
+    // Every major system of the robot is handled by a diff struct, and each one has a pointer back to the SpiderRobot:
+    use std::rc::Rc;
+
+    pub struct SpiderSense {
+        robot: Rc<SpiderRobot>, // pointer to settings and I/O
+        eyes: [Camera; 32],
+        motion: Accelerometer,
+        ...
+    }
+
+    // The structs for web construction, predation, venom flow control, and so forth also each have an Rc<SpiderRobot> smart pointer. Recall that Rc stands for reference counting, and a value in an Rc box is always shared and therefore always immutable.
+
+    // Now suppose we want to add a little logging to the SpiderRobot struct, using the standard File type. There's a problem. A file has to be mut and all the methods for writing to it require a mut ref.
+
+    // This sort of situation comes up fairly often. What we need is a little bit of mutable data (a File) inside an otherwise immutable value (the SpiderRobot struct). This is called interior mutability. Rust offers several flavours of it. We'll discuss the two most straightforward types. Cell<T> and RefCell<T>, both in the std::cell module.
+
+    // A Cell<T> is a struct that contains a single private value of type T. The only special thing about a Cell is that we can get and set the field even if we don't have mut access to the Cell itself:
+        // 1. Cell::new(value) creates a new Cell, moving the given value into it.
+        // 2. cell.get() returns a copy of the value in the cell.
+        // 3. cell.set(value) stores the given value in the cell, dropping the previously stored value.
+
+        // This method takes self as a non-mut ref:
+        fn set(&self, value: T) // note: not `&mut self`
+
+        // This is, of course, unusual for methods named set. By now, Rust has trained us to expect that we need mut access if we want to make changes to data. But by the same token, this one unusual detail is the whole point of Cells. They're simply a safe way of bending the rules on immutability. No more, no less.
+
+    // Cells have a few other methods which can be read in the documentation.
+
+    // A Cell would be handy if we were adding a simple counter to our SpiderRobot:
+    use std::cell::Cell;
+
+    pub struct SpiderRobot {
+        ...
+        hardware_error_count: Cell<u32>,
+        ...
+    }
+
+    // and then ven non-mut methods of SpiderRobot can access that u32, using the .get() and .set() methods:
+    impl SpiderRobot {
+        /// Increase the error count by 1.
+        pub fn add_hardware_error(&self) {
+            let n = self.hardware_error_count.get()
+            self.hardware_error_count.set(n + 1);
+        }
+
+        /// True if any hardware errors have been reported.
+        pub fn has_hardware_errors(&self) -> bool {
+            self.hardware_error_count.get() > 0
+        }
+    }
+
+    // The above however, doesn't solve our logging problem. Cell does not let us call mut methods on a shared value. The .get() method returns a copy of the value in the cell, so it works only if T implements the Copy trait (chapt 4). For logging, we need a mutable File, anf File isn't copyable.
+
+    // The right tool in this case is a RefCell. Like Cell<T>, RefCell<T> is a generic type that contains a single value of type T. Unlike Cell, RefCell supports borrowing refs to its T value:
+        // 1. RefCell::new(value) creates a new RefCell, moving value into it.
+        // 2. ref_cell.borrow() returns a Ref<T>, which is essentially just a shared ref to the value stored in ref_cell.
+
+        // This method panics if the value is already mutably borrowed
+
+        // 3. ref_cell.borrow_mut() return a RefMut<T>, essentially a mutable ref to the value in ref_cell.
+
+        // This method panics if the value is already borrowed.
+
+    // Can read more about RefCell in the official docs.
+
+    // The borrow methods panic only if we try to break the Rust rule that mut refs are exclusive refs. For example, this would panic:
+    let ref_cell: RefCell<String> = RefCell::new("hello".to_string());
+
+    let r = ref_cell.borrow(); // ok, returns a Ref<String>
+    let count = r.lent(); // ok, returns "hello".len()
+    assert_eq!(count, 5);
+
+    let mut w = ref_cell.borrow_mut(); panic: already borrowed
+    w.push_str(" world");
+
+    // To avoid panicking, we could put these two borrows into separate blocks. That way, r would be dropped before we try to borrow w.
+
+    // This is a lot like how normal references work. The only diff is that normally, when we borrow a ref to a variable, Rust checks at compile time to ensure that we're using the ref safely. If the checks fail, we get a compiler error. RefCell enforces the same rul using runtime checks. So if we're breaking the rules, we get a panic.
+
+    // Now we're ready to put RefCell to work in our SpiderRobot type:
+    pub struct SpiderRobot {
+        ...
+        log_file: RefCell<File>,
+        ...
+    }
+
+    impl SpiderRobot {
+        /// Write a line to log the file.
+        pub fn lob(&self, message: &str) {
+            let mut file = self.log_file.borrow_mut();
+            writeln!(file, "{}", message).unwrap();
+        }
+    }
+
+    // The variable file has type RefMut<File>. It can be used just like a mutable ref to a File. For details on writing to files, see chapt 18.
+
+    // Cells are easy to use. Having to call .get() and .set() or .borrow() and .borrow_mut() is slightly awkward, but that's just the price we pay for bending the rules. The other drawback is less obvious and more serious. Ce;;s, and any types that contain them, are not thread-safe. Rust therefore will not allow multiple threads to access them at once. More on that in chapt 19.
+
+    // Whether a struct has named fields or is tuple-like, it is an aggregation of other values. If I have a SpiderSenses struct, then I have an Rc pointer to a shared SpiderRobot struct, and I have eyes, and I have an accelerometer, and so on. So the essence of a struct is the word "and". I have an X and a Y. But what if there were another kind of type built around the word "or"? That is, when we have a value of such a type, we'd have either an X or a Y? Such types turn out to be so useful that they're ubiquitous in Rust, and they're the subject of the next chapter.
+
 
 
 
