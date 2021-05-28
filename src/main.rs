@@ -370,5 +370,34 @@ fn main() {
 
 
 
+    // Deriving Common Traits for Struct Types
+
+    // Structs can be very easy to write:
+    struct Point {
+        x: f64,
+        y: f64
+    }
+
+    // However, if we were to start using this Point type, we would quickly notice that it's a bit of a pain. As written, Point is not copyable or cloneable. We can't print it with println!("{:?}", point), and it doesn't support the == and != operators.
+
+    // Each of these features has a name in Rust, Copy, Clone, Debug, and PartialEq. They are called traits. In chapt 11, goes into more detail on how to implement traits by hand for our own structs. But in the case of these standard traits, and several others, we don't need to implement them by hand unless we want some kind of custom behaviour. Rust can automatically implement them for us, with mechanical accuracy. Just add a #[derive] attribute to the struct:
+    #[derive(Copy, Clone, Debug, PartialEq)]
+    struct Point {
+        x: f64,
+        y: f64
+    }
+
+    // Each of these traits can be implemented automatically for a struct, provided that each of its fields implements the trait. We can ask Rust to derive PartialEq for Point because its two fields are both of type f64, which already implements PartialEq.
+
+    // Rust can also derive PartialCmp, which would add support for the comparison operators <, >, <=, and >=. We haven't done so here because comparing two points to see if one is "less than" the other is actually a pretty weird thing to do. There's no one conventional order on points. So we choose not to support those operators for Point values.
+
+    // Cases like this are one reason that Rust makes us write the #[derive] attribute rather than automatically deriving every trait it can. Another reason is that implementing a trait is automatically a public feature, so copyability, cloneability, and so forth are all part of our struct's public API and should be chosen deliberately. More on this in chapt 13.
+
+
+
+    
+
+
+
 
 }
