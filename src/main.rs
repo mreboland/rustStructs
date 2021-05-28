@@ -232,5 +232,105 @@ fn main() {
         }
     }
 
-    
+    // Again, the method call expression knows which sort of ref to borrow:
+    assert!(q.is_empty());
+    q.push('☉');
+    assert!(!q.is_empty());
+
+    // Or, if a method wants to take ownership of self, it can take self by value:
+    impl Queue {
+        pub fn split(self) -> (Vec<char>, Vec<char>) {
+            (self.older, self.younger)
+        }
+    }
+
+    // Calling this split method looks like the other method calls:
+    let mut q = Queue { older: Vec::new(), younger: Vec::new() };
+
+    q.push('P');
+    q.push('D');
+    assert_eq!(q.pop(), Some('P'));
+    q.push('X');
+
+    let (older, younger) = q.split();
+    // q is now uninitialized
+    assert_eq!(older, vec!['D']);
+    assert_eq!(younger, vec!['X']);
+
+    // Since split takes its self by value, this moves the Queue out of q, leaving q uninitialized. Since split's self now owns the queue, it's able to move the individual vectors out of it, and return them to the caller.
+
+    // We can also define methods that don't take self as an argument at all. These become functions associated with the struct type itself, not with any specific value of the type. Following the tradition established by C++ and Java, Rust calls these static methods. They're often used to provide constructor functions like so:
+    impl Queue {
+        pub fn new() -> {
+            Queue { older: Vec::new(), younger: Vec::new() }
+        }
+    }
+
+    // To use this method, we refer to it as Queue::new. The type name, a double colon, then the method name. Now our example code becomes a bit more svelte:
+    let mut q = Queue::new()
+
+    q.push('*');
+    ...
+
+    // It's conventional in Rust for constructor functions to be named new. We've already seen Vec::new, Box::new, HashMap::new, and others. But there's nothing special about the name new. It's not a keyword, and types often have other static methods that serve as constructors, like Vec::with_capacity.
+
+    // Although we can have many separate impl blocks for a single type, they must all be in the same crate that defines that type. However, Rust does let us attach our own methods to other types, explained in chapt 11.
+
+
+
+    // Generic Structs
+
+    // Our earlier definition of Queue is unsatisfying. It is written to store characters, but there's nothing about its structure or methods that is specific to characters at all. If we were to define another struct that held, say, String values, the code could be identical, except that char would be replaced with String. That would be a waste of time.
+
+    // Fortunately, Rust structs can be generic, meaning that their definition is a template into which we can plug whatever types we like. For example, here's a definition for Queue that can hold values of any type:
+    pub struct Queue<T> {
+        older: Vec<T>,
+        younger: Vec<T>
+    }
+
+    // We can read the <T> in Queue<T> as "for any element type T...". So this definition reads, "For any type T, a Queue<T> is two fields of type Vec<T>". For example, in Queue<String>, T is String, so older and younger have type Vec<String>. In Queue<char>, T is char, and we get a struct identical to the char-specific definition we started with. In fact, Vec itself is a generic struct, defined in just this way.
+
+    // In generic struct definitions, the type names used in <angle brackets> are called type parameters. An impl block for a generic struct looks like this:
+    impl<T> Queue<T> {
+        pub fn new() -> Queue<T> {
+            Queue { older: Vec::new(), younger: Vec::new() }
+        }
+
+        pub fn push(&mut self, t: T) {
+            self.younger.push(t);
+        }
+
+        pub fn is_empty(&self) -> bool {
+            self.older.is_empty() && self.younger.is_empty()
+        }
+
+        ...
+    }
+
+    // We can read the line impl<T> Queue<T> as something like, "for any type T, here are some methods available on Queue<T>". Then, we can use the type parameter T as a type in the method definitions.
+
+    // We've used Rust's shorthand for self parameters in the preceding code. Writing out Queue<T> everywhere becomes a mouthful and a distraction. As another shorthand, every impl block, generic or not, defines the special type parameter Self (note the CamelCase name) to be whatever type we're adding methods to. In the preceding code Self would be Queue<T>, so we can abbreviate Queue::new's def a bit further:
+    pub fn new() -> Self {
+        Queue { older: Vec::new(), younger: Vec::new() }
+    }
+
+    // In the body of new, we didn't need to write the type parameter in the construction expression. Simply writing Queue { ... } was good enough. This is Rust's type inference at work. Since there's only one type that works for that function's return value, namely Queue<T>, Rust supplies the parameter for us. However, we'll always need to supply type parameters in function signatures and type definitions. Rust doesn't infer those. Instead, it uses those explicit types as the basis from which it infers types within function bodies.
+
+    // For static method calls, we can supply the type parameter explicitly using the turbofish ::<> notation:
+    let mut q = Queue::<char>::new();
+
+    // In practice, we can usually just let Rust figure it out for us:
+    let mut q = Queue::new();
+    let mut r = Queue::new();
+
+    q.push("CAD"); // apparently a Queue<&'static str>
+    r.push(0.74); // apparently a Queue<f64>
+    q.push("BTC"); // Bitcoins per USD, 2017-5
+    r.push(2737.7); // Rust fails to detect irrational exuberance
+
+    // Vec is an example of another generic struct type. Also, it's not just structs that can be generic. Enums can take type parameters as well, with very similar syntax. Details later.
+
+
+
+
 }
