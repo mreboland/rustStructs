@@ -146,4 +146,20 @@ fn main() {
     // We've already encountered a unit-like struct when reading about "Fields and Elements" in chapt 6. Whereas an expression like 3..5 is shorthand for the struct value Range { start: 3, end: 5 }, the expression .., a range omitting both endpoints, is shorthand for the unit-like struct value RangeFull.
 
     // Unit-like structs can also be useful when working with traits which is covered in chapt 11.
+
+
+
+    // Struct Layout
+
+    // In memory, both named-field and tuple-like structs are the same thing. A collection of values, of possibly mixed types, laid out in a particular way in memory. For example, earlier in the chapter we defined:
+    struct GrayscaleMap {
+        pixels: Vec<u8>,
+        size: (usize, usize)
+    }
+
+    // See page 315 for diagram
+
+    // Rust doesn't make specific promises about how it will order a struct's fields or elements in memory. However, Rust does promise to store field's value directly in the struct's block of memory. Whereas JS and Python would put the pixels and size values each in their own heap-allocated blocks and have GrayscaleMap's fields point at them, Rust embeds pixels and size directly in the GrayscaleMap value. Only the heap-allocated buffer owned by the pixels vector remains in its own block.
+
+    // We can ask Rust to lay out structures in a way compatible with C and C++, using the #[repr(C)] attribute, covered in chapt 21.
 }
